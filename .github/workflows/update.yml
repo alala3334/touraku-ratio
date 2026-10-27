@@ -1,0 +1,36 @@
+name: 騰落レシオを記録
+
+on:
+  schedule:
+    # 平日 18:40 JST（確定値は18時頃）と 21:10 JST（再取得の保険）
+    - cron: "40 9 * * 1-5"
+    - cron: "10 12 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: データ取得
+        run: python scripts/fetch.py
+      - name: 変更があればコミット
+        run: |
+          if git diff --quiet -- data/touraku.csv; then
+            echo "新しいデータなし"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git commit -m "data: $(tail -1 data/touraku.csv | cut -d, -f1) の騰落レシオを記録"
+          git push
