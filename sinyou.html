@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信用残・評価損益率</title>
+<link rel="stylesheet" href="assets/style.css?v=2">
+<style>
+#pnlChart { height: 280px; }
+#ratioChart { height: 150px; }
+#balanceChart { height: 210px; }
+#nikkeiChart { height: 150px; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html" aria-current="page">信用残・評価損益率</a></nav>
+  <header>
+    <h1>信用残・評価損益率</h1>
+    <p>二市場 信用取引残高（週次） · 出典 <a href="https://nikkei225jp.com/data/sinyou.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="6">6カ月</button><button data-m="12">1年</button><button data-m="36" aria-pressed="true">3年</button><button data-m="60">5年</button><button data-m="120">10年</button><button data-m="0">全期間</button>
+      </div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="chart-title">信用評価損益率（%）<span class="note"> 点線: -3 天井圏 / -10 / -15 底値圏</span></div>
+    <div id="pnlChart"></div>
+    <div class="chart-title">信用倍率（倍）</div>
+    <div id="ratioChart"></div>
+    <div class="chart-title">信用残 金額（億円）
+      <span class="toggles" id="toggles" style="display:inline-flex;margin-left:10px;font-weight:400"></span>
+    </div>
+    <div id="balanceChart"></div>
+    <div class="chart-title">日経225 週末終値</div>
+    <div id="nikkeiChart"></div>
+    <p class="note">信用残は毎週、前週末時点の値が火曜〜水曜ごろに発表されます。</p>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>週次データ</h2>
+      <span class="legend-note"><span class="chip" style="background:#d63b3a;color:#fff;font-weight:700">-3%超 天井圏</span><span class="chip" style="background:#2a6fd0;color:#fff;font-weight:700">-15%未満 底値圏</span></span>
+      <a href="data/sinyou.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/common.js?v=2"></script>
+<script>
+// 評価損益率の目安: -3% 超は天井圏、-15% 未満は底値圏（元サイトの色分けと同じ基準）
+const state = v => v == null ? null : v > -3 ? ['hot', '天井圏'] : v < -15 ? ['cold', '底値圏'] : ['mid', '中立'];
+const BALANCE = [
+  { key: 'buy_amount', label: '買残', color: '--series-1' },
+  { key: 'sell_amount', label: '売残', color: '--series-2' },
+];
+
+let rows = [], byTime = new Map(), charts = [], plots = [];
+
+async function main() {
+  const res = await fetch('data/sinyou.json', { cache: 'no-cache' });
+  const json = await res.json();
+  rows = json.rows.map(r => Object.fromEntries(json.fields.map((k, i) => [k, r[i]])));
+  rows.forEach((r, i) => {
+    const p = rows[i - 1];
+    r.buy_chg = p && p.buy_amount && r.buy_amount ? (r.buy_amount / p.buy_amount - 1) * 100 : null;
+    r.sell_chg = p && p.sell_amount && r.sell_amount ? (r.sell_amount / p.sell_amount - 1) * 100 : null;
+    byTime.set(r.date, r);
+  });
+  document.getElementById('updated').textContent = json.updated.replace('T', ' ');
+  renderTiles();
+  renderTable();
+  buildCharts();
+  setRange(36);
+}
+
+function renderTiles() {
+  const last = rows[rows.length - 1], prev = rows[rows.length - 2];
+  const st = state(last.pnl);
+  const d = (a, b, digits = 2) => a == null || b == null ? '-' : (a - b >= 0 ? '+' : '') + fmt(a - b, digits);
+  const tile = (label, value, sub, hero) => `<div class="tile${hero ? ' hero' : ''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile('信用評価損益率', `${fmt(last.pnl)}%${st ? `<span class="badge ${st[0]}">${st[1]}</span>` : ''}`, `${last.date} 週 · 前週比 ${d(last.pnl, prev.pnl)}pt`, true) +
+    tile('信用倍率', `${fmt(last.ratio)}倍`, `前週比 ${d(last.ratio, prev.ratio)}`) +
+    tile('買残', `${fmt(last.buy_amount / 10000)}兆円`, `前週比 ${pct(last.buy_chg)}`) +
+    tile('売残', `${fmt(last.sell_amount / 10000)}兆円`, `前週比 ${pct(last.sell_chg)}`) +
+    tile('日経225（週末）', fmt(last.nikkei), `${rows.length}週分を記録`);
+}
+
+function renderTable() {
+  const pnlCell = v => { const s = state(v); return `<td class="${s && s[0] !== 'mid' ? s[0] : ''}">${fmt(v)}</td>`; };
+  let h = '<thead><tr><th>週末日付</th><th>日経225</th><th>買残<br>(億円)</th><th>買残<br>前週比</th><th>売残<br>(億円)</th><th>売残<br>前週比</th><th>買残<br>(千株)</th><th>売残<br>(千株)</th><th>信用倍率</th><th>評価<br>損益率(%)</th></tr></thead><tbody>';
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    h += `<tr><td>${r.date}</td><td>${fmt(r.nikkei)}</td><td>${fmt(r.buy_amount, 0)}</td><td>${pct(r.buy_chg)}</td><td>${fmt(r.sell_amount, 0)}</td><td>${pct(r.sell_chg)}</td><td>${fmt(r.buy_shares, 0)}</td><td>${fmt(r.sell_shares, 0)}</td><td>${fmt(r.ratio)}</td>${pnlCell(r.pnl)}</tr>`;
+  }
+  document.getElementById('table').innerHTML = h + '</tbody>';
+}
+
+// 値がない週も時刻だけの点として入れ、全チャートの横位置をそろえる
+const seriesData = key => rows.map(r => r[key] == null ? { time: r.date } : { time: r.date, value: r[key] });
+
+function addChart(id, defs, digits = 2) {
+  const chart = LightweightCharts.createChart(document.getElementById(id), chartOptions(digits));
+  const series = defs.map(d => {
+    const s = chart.addLineSeries({ lineWidth: d.width || 1.5, priceLineVisible: false, crosshairMarkerRadius: 4 });
+    s.setData(seriesData(d.key));
+    plots.push({ series: s, color: d.color });
+    return s;
+  });
+  charts.push({ chart, series: series[0], key: defs[0].key, digits });
+  return { chart, series };
+}
+
+function buildCharts() {
+  const pnl = addChart('pnlChart', [{ key: 'pnl', color: '--series-1', width: 2 }]);
+  addChart('ratioChart', [{ key: 'ratio', color: '--series-3' }]);
+  const bal = addChart('balanceChart', BALANCE, 0);
+  addChart('nikkeiChart', [{ key: 'nikkei', color: '--nikkei' }], 0);
+
+  for (const [v, c] of [[-3, '--hot'], [-10, '--text-muted'], [-15, '--cold']]) {
+    pnl.series[0].createPriceLine({ price: v, color: css(c), lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '' });
+  }
+  // -3〜-15 の基準線が常に見えるよう縦軸の範囲を広げる
+  pnl.series[0].applyOptions({ autoscaleInfoProvider: base => {
+    const r = base(); if (!r) return r;
+    return { priceRange: { minValue: Math.min(r.priceRange.minValue, -17), maxValue: Math.max(r.priceRange.maxValue, -1) } };
+  } });
+
+  const toggles = document.getElementById('toggles');
+  BALANCE.forEach((b, i) => {
+    toggles.insertAdjacentHTML('beforeend', `<label><input type="checkbox" id="tg-${b.key}" checked><span class="swatch" data-c="${b.color}"></span>${b.label}</label>`);
+    document.getElementById('tg-' + b.key).addEventListener('change', e => bal.series[i].applyOptions({ visible: e.target.checked }));
+  });
+
+  applyTheme();
+  syncTimeScales(charts.map(c => c.chart));
+  // クロスヘアを全チャートで同期
+  for (const src of charts) src.chart.subscribeCrosshairMove(p => {
+    showReadout(p.time);
+    for (const dst of charts) {
+      if (dst === src) continue;
+      const r = p.time && byTime.get(p.time);
+      if (r && r[dst.key] != null) dst.chart.setCrosshairPosition(r[dst.key], p.time, dst.series);
+      else dst.chart.clearCrosshairPosition();
+    }
+  });
+  showReadout(null);
+
+  document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#range button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    setRange(Number(b.dataset.m));
+  }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+}
+
+function applyTheme() {
+  for (const c of charts) c.chart.applyOptions(chartOptions(c.digits));
+  for (const p of plots) p.series.applyOptions({ color: css(p.color) });
+  document.querySelectorAll('.swatch').forEach(el => el.style.background = css(el.dataset.c));
+}
+
+function showReadout(t) {
+  const r = byTime.get(t) || rows[rows.length - 1];
+  const st = state(r.pnl);
+  document.getElementById('readout').innerHTML =
+    `<span><b>${r.date}</b> 週</span><span>評価損益率 <b>${fmt(r.pnl)}%</b>${st ? ` (${st[1]})` : ''}</span><span>信用倍率 <b>${fmt(r.ratio)}</b></span><span>買残 <b>${fmt(r.buy_amount, 0)}</b>億円 (${pct(r.buy_chg)})</span><span>売残 <b>${fmt(r.sell_amount, 0)}</b>億円 (${pct(r.sell_chg)})</span><span>日経 <b>${fmt(r.nikkei)}</b></span>`;
+}
+
+function setRange(months) {
+  const ts = charts[0].chart.timeScale();
+  if (!months) { ts.fitContent(); return; }
+  const last = rows[rows.length - 1].date;
+  const d = new Date(last); d.setMonth(d.getMonth() - months);
+  ts.setVisibleRange({ from: d.toISOString().slice(0, 10), to: last });
+}
+
+main().catch(e => { document.getElementById('error').textContent = 'データの読み込みに失敗しました: ' + e.message; });
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-name: 騰落レシオを記録
+name: 騰落レシオ・信用残を記録
 
 on:
   schedule:
@@ -22,15 +22,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: データ取得
+      - name: 騰落レシオを取得
         run: python scripts/fetch.py
+      - name: 信用残を取得
+        run: python scripts/fetch_sinyou.py
       - name: 変更があればコミット
         run: |
-          if git diff --quiet -- data/touraku.csv; then
+          if git diff --quiet -- data/*.csv; then
             echo "新しいデータなし"; exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add data/
-          git commit -m "data: $(tail -1 data/touraku.csv | cut -d, -f1) の騰落レシオを記録"
+          git commit -m "data: $(TZ=Asia/Tokyo date +%F) のデータを記録"
           git push
