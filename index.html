@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>騰落レシオ記録</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --border: #e3e2de;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #85847f;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --nikkei: #52514e;
+  --hot: #e34948;
+  --cold: #2a78d6;
+  --hot-bg: #fbe9e8;
+  --cold-bg: #e6f0fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #2e2e2b;
+    --grid: #262624;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8d8c85;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --nikkei: #c3c2b7;
+    --hot: #e66767;
+    --cold: #3987e5;
+    --hot-bg: #3a1f1f;
+    --cold-bg: #1a2a3d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2b; --grid: #262624;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c85;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --nikkei: #c3c2b7; --hot: #e66767; --cold: #3987e5; --hot-bg: #3a1f1f; --cold-bg: #1a2a3d;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+header h1 { font-size: 20px; margin: 0 0 2px; }
+header p { margin: 0; color: var(--text-secondary); font-size: 12px; }
+header a { color: inherit; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .label { color: var(--text-secondary); font-size: 12px; }
+.tile .value { font-size: 26px; font-weight: 600; line-height: 1.2; }
+.tile.hero .value { font-size: 34px; }
+.tile .sub { color: var(--text-muted); font-size: 12px; }
+.badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: middle; font-weight: 500; }
+.badge.hot { background: var(--hot-bg); color: var(--text-primary); }
+.badge.cold { background: var(--cold-bg); color: var(--text-primary); }
+.badge.mid { background: var(--grid); color: var(--text-secondary); }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--text-secondary); padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--grid); color: var(--text-primary); font-weight: 600; }
+.toggles { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--text-secondary); }
+.toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.readout { font-size: 13px; color: var(--text-secondary); min-height: 20px; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.readout b { color: var(--text-primary); font-weight: 600; }
+.chart-title { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
+#ratioChart { height: 340px; }
+#nikkeiChart { height: 170px; }
+.note { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--text-secondary); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--surface-1); }
+th:first-child, td:first-child { text-align: left; }
+td.hot { background: var(--hot-bg); }
+td.cold { background: var(--cold-bg); }
+.table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+.row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.row-head h2 { font-size: 15px; margin: 0 0 6px; }
+.row-head a { font-size: 12px; color: var(--text-secondary); }
+#error { color: var(--hot); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>騰落レシオ記録</h1>
+    <p>東証プライム 値上がり/値下がり銘柄数から算出 · 出典 <a href="https://nikkei225jp.com/data/touraku.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="1">1カ月</button><button data-m="3" aria-pressed="true">3カ月</button><button data-m="6">6カ月</button><button data-m="12">1年</button><button data-m="0">全期間</button>
+      </div>
+      <div class="toggles" id="toggles"></div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="chart-title">騰落レシオ（%）<span class="note"> 点線: 120 買われすぎ / 100 / 70 売られすぎ</span></div>
+    <div id="ratioChart"></div>
+    <div class="chart-title">日経225 終値</div>
+    <div id="nikkeiChart"></div>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>日次データ</h2>
+      <a href="data/touraku.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const SERIES = [
+  { key: 'r25', label: '25日', color: '--series-1', on: true, width: 2 },
+  { key: 'r15', label: '15日', color: '--series-2', on: false, width: 1.5 },
+  { key: 'r10', label: '10日', color: '--series-3', on: false, width: 1.5 },
+  { key: 'r6',  label: '6日',  color: '--series-4', on: false, width: 1.5 },
+];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 2) => v == null ? '-' : Number(v).toLocaleString('ja-JP', { minimumFractionDigits: d, maximumFractionDigits: d });
+const state = v => v == null ? null : v >= 120 ? ['hot', '買われすぎ'] : v <= 70 ? ['cold', '売られすぎ'] : ['mid', '中立'];
+
+let rows = [], ratioChart, nikkeiChart, lines = {}, nikkeiLine, byTime = new Map();
+
+async function main() {
+  const res = await fetch('data/touraku.json', { cache: 'no-cache' });
+  const json = await res.json();
+  const f = json.fields;
+  rows = json.rows.map(r => Object.fromEntries(f.map((k, i) => [k, r[i]])));
+  // 履歴の最初の24日は自前計算できないので公式値で補う
+  rows.forEach(r => { if (r.r25 == null) r.r25 = r.official25; byTime.set(r.date, r); });
+  document.getElementById('updated').textContent = json.updated.replace('T', ' ');
+  renderTiles();
+  renderTable();
+  buildCharts();
+  setRange(3);
+}
+
+function renderTiles() {
+  const last = rows[rows.length - 1], prev = rows[rows.length - 2];
+  const st = state(last.r25);
+  const diff = last.r25 - prev.r25;
+  const tile = (label, value, sub, hero) => `<div class="tile${hero ? ' hero' : ''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile('25日騰落レシオ', `${fmt(last.r25)}<span class="badge ${st[0]}">${st[1]}</span>`, `${last.date} · 前日比 ${diff >= 0 ? '+' : ''}${fmt(diff)}`, true) +
+    tile('15日', fmt(last.r15), '') +
+    tile('10日', fmt(last.r10), '') +
+    tile('6日', fmt(last.r6), '') +
+    tile('値上がり / 値下がり', `${last.advances} / ${last.declines}`, '銘柄数') +
+    tile('日経225', fmt(last.nikkei), `${rows.length}営業日分を記録`);
+}
+
+function renderTable() {
+  const cell = v => { const s = state(v); return `<td class="${s && s[0] !== 'mid' ? s[0] : ''}">${fmt(v)}</td>`; };
+  let h = '<thead><tr><th>日付</th><th>日経225</th><th>前日比</th><th>出来高<br>(百万株)</th><th>値上がり</th><th>値下がり</th><th>25日</th><th>15日</th><th>10日</th><th>6日</th></tr></thead><tbody>';
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i], p = rows[i - 1];
+    const d = p && r.nikkei && p.nikkei ? r.nikkei - p.nikkei : null;
+    h += `<tr><td>${r.date}</td><td>${fmt(r.nikkei)}</td><td>${d == null ? '-' : (d >= 0 ? '+' : '') + fmt(d)}</td><td>${fmt(r.volume, 0)}</td><td>${r.advances}</td><td>${r.declines}</td>${cell(r.r25)}${cell(r.r15)}${cell(r.r10)}${cell(r.r6)}</tr>`;
+  }
+  document.getElementById('table').innerHTML = h + '</tbody>';
+}
+
+function chartOptions() {
+  return {
+    autoSize: true,
+    layout: { background: { color: css('--surface-1') }, textColor: css('--text-secondary'), fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: css('--grid') } },
+    rightPriceScale: { borderVisible: false, minimumWidth: 70 },
+    timeScale: { borderVisible: false },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Magnet },
+    localization: { locale: 'ja-JP', dateFormat: 'yyyy/MM/dd' },
+    handleScale: { axisPressedMouseMove: { price: false } },
+  };
+}
+
+function buildCharts() {
+  ratioChart = LightweightCharts.createChart(document.getElementById('ratioChart'), chartOptions());
+  nikkeiChart = LightweightCharts.createChart(document.getElementById('nikkeiChart'), chartOptions());
+
+  const toggles = document.getElementById('toggles');
+  for (const s of SERIES) {
+    const line = ratioChart.addLineSeries({ lineWidth: s.width, priceLineVisible: false, lastValueVisible: s.on, visible: s.on, crosshairMarkerRadius: 4 });
+    line.setData(rows.filter(r => r[s.key] != null).map(r => ({ time: r.date, value: r[s.key] })));
+    lines[s.key] = line;
+    // 70〜120 の基準線が常に見えるよう縦軸の範囲を広げる
+    line.applyOptions({ autoscaleInfoProvider: base => {
+      const r = base(); if (!r) return r;
+      return { priceRange: { minValue: Math.min(r.priceRange.minValue, 65), maxValue: Math.max(r.priceRange.maxValue, 125) } };
+    } });
+    const id = 'tg-' + s.key;
+    toggles.insertAdjacentHTML('beforeend', `<label><input type="checkbox" id="${id}" ${s.on ? 'checked' : ''}><span class="swatch" data-c="${s.color}"></span>${s.label}</label>`);
+    document.getElementById(id).addEventListener('change', e => line.applyOptions({ visible: e.target.checked, lastValueVisible: e.target.checked }));
+  }
+  for (const [v, c] of [[120, '--hot'], [100, '--text-muted'], [70, '--cold']]) {
+    lines.r25.createPriceLine({ price: v, color: css(c), lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '' });
+  }
+  nikkeiLine = nikkeiChart.addLineSeries({ lineWidth: 1.5, priceLineVisible: false, crosshairMarkerRadius: 4 });
+  nikkeiLine.setData(rows.filter(r => r.nikkei != null).map(r => ({ time: r.date, value: r.nikkei })));
+  applyTheme();
+
+  // 2つのチャートの表示範囲とクロスヘアを同期
+  let syncing = false;
+  const sync = (a, b) => a.timeScale().subscribeVisibleLogicalRangeChange(r => {
+    if (syncing || !r) return; syncing = true; b.timeScale().setVisibleLogicalRange(r); syncing = false;
+  });
+  sync(ratioChart, nikkeiChart); sync(nikkeiChart, ratioChart);
+  const cross = (src, dst, dstSeries, key) => src.subscribeCrosshairMove(p => {
+    const t = p.time; showReadout(t);
+    if (!t) { dst.clearCrosshairPosition(); return; }
+    const r = byTime.get(t); if (r && r[key] != null) dst.setCrosshairPosition(r[key], t, dstSeries);
+  });
+  cross(ratioChart, nikkeiChart, nikkeiLine, 'nikkei');
+  cross(nikkeiChart, ratioChart, lines.r25, 'r25');
+  showReadout(null);
+
+  document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#range button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    setRange(Number(b.dataset.m));
+  }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+}
+
+function applyTheme() {
+  for (const c of [ratioChart, nikkeiChart]) c.applyOptions(chartOptions());
+  for (const s of SERIES) lines[s.key].applyOptions({ color: css(s.color) });
+  nikkeiLine.applyOptions({ color: css('--nikkei') });
+  document.querySelectorAll('.swatch').forEach(el => el.style.background = css(el.dataset.c));
+}
+
+function showReadout(t) {
+  const r = byTime.get(t) || rows[rows.length - 1];
+  const st = state(r.r25);
+  document.getElementById('readout').innerHTML =
+    `<span><b>${r.date}</b></span><span>25日 <b>${fmt(r.r25)}</b> (${st[1]})</span><span>15日 <b>${fmt(r.r15)}</b></span><span>10日 <b>${fmt(r.r10)}</b></span><span>6日 <b>${fmt(r.r6)}</b></span><span>上昇 <b>${r.advances}</b> / 下落 <b>${r.declines}</b></span><span>日経 <b>${fmt(r.nikkei)}</b></span>`;
+}
+
+function setRange(months) {
+  const last = rows[rows.length - 1].date;
+  if (!months) { ratioChart.timeScale().fitContent(); nikkeiChart.timeScale().fitContent(); return; }
+  const d = new Date(last); d.setMonth(d.getMonth() - months);
+  const from = d.toISOString().slice(0, 10);
+  ratioChart.timeScale().setVisibleRange({ from, to: last });
+}
+
+main().catch(e => { document.getElementById('error').textContent = 'データの読み込みに失敗しました: ' + e.message; });
+</script>
+</body>
+</html>
