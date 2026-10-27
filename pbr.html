@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日経225 PBR</title>
+<link rel="stylesheet" href="assets/style.css?v=5">
+</head>
+<body>
+<main>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html">信用残</a><a href="saitei.html">裁定残</a><a href="per.html">PER</a><a href="pbr.html" aria-current="page">PBR</a><a href="kokusai.html">国債金利</a></nav>
+  <header>
+    <h1>日経225 PBR</h1>
+    <p>株価純資産倍率（日次） · 出典 <a href="https://nikkei225jp.com/data/per.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="basis" role="group" aria-label="計算方法" hidden>
+        <button data-b="w" aria-pressed="true">加重平均</button><button data-b="i">指数ベース</button>
+      </div>
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="3">3カ月</button><button data-m="12">1年</button><button data-m="36" aria-pressed="true">3年</button><button data-m="60">5年</button><button data-m="120">10年</button><button data-m="0">全期間</button>
+      </div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div id="charts"></div>
+    <p class="note">「加重平均」は日経新聞などで広く使われる値、「指数ベース」は指数の計算方法に合わせた値です。 PBR 1倍は「解散価値」とされ、下値の目安になります。</p>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>日次データ</h2>
+      <span class="legend-note"><span class="chip" style="background:#2a6fd0;color:#fff;font-weight:700">1倍未満</span><span>（加重平均）</span></span>
+      <a href="data/valuation.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+    <p><button id="showAll" class="more" hidden>すべての日を表示</button></p>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/common.js?v=5"></script>
+<script src="assets/valuation.js?v=5"></script>
+<script>
+const pbrState = (v, b = 'w') => v == null || b !== 'w' ? null : v < 1 ? ['cold', '1倍割れ'] : null;
+const pbr = (r, b) => r['pbr_' + b];
+const bps = (r, b) => r.nikkei && r['pbr_' + b] ? r.nikkei / r['pbr_' + b] : null;
+renderValuationPage({
+  basisToggle: true,
+  state: (r, b) => pbrState(pbr(r, b), b),
+  charts: [
+    { id: 'pbrChart', title: 'PBR（倍）<span class="basis-name"></span>', note: '点線: 1倍（解散価値、加重平均での目安）', height: 280, digits: 2,
+      lines: [{ label: 'PBR', unit: '倍', color: '--series-1', width: 2, value: pbr }], refs: [{ v: 1, color: '--cold' }] },
+    { id: 'bpsChart', title: 'BPS（円）= 日経225 ÷ PBR<span class="basis-name"></span>', height: 160, digits: 0,
+      lines: [{ label: 'BPS', unit: '円', color: '--series-3', value: bps }] },
+    { id: 'nikkeiChart', title: '日経225 終値', height: 160, digits: 0,
+      lines: [{ label: '日経', color: '--nikkei', value: r => r.nikkei }] },
+  ],
+  tiles: (last, prev, b, tile) => {
+    const st = pbrState(pbr(last, b), b);
+    const d = pbr(last, b) - pbr(prev, b);
+    return tile(`PBR（${BASIS[b]}）`, `${fmt(pbr(last, b))}<small>倍</small>${st ? `<span class="badge ${st[0]}">${st[1]}</span>` : ''}`, `${last.date} · 前日比 ${(d >= 0 ? '+' : '') + fmt(d)}`, true) +
+      tile('BPS（＝PBR 1倍の水準）', `${fmt(bps(last, b), 0)}<small>円</small>`, `日経225 ÷ PBR · 今の日経225から ${fmt((bps(last, b) / last.nikkei - 1) * 100, 1)}%`) +
+      tile('日経225', fmt(last.nikkei), last.date);
+  },
+  columns: [
+    { label: '日経225', value: r => r.nikkei, digits: 2 },
+    { label: 'PBR<br>加重平均', value: r => r.pbr_w, digits: 2, cls: v => v < 1 ? 'cold' : '' },
+    { label: 'PBR<br>指数ベース', value: r => r.pbr_i, digits: 2 },
+    { label: 'BPS(円)<br>加重平均', value: r => bps(r, 'w'), digits: 0 },
+    { label: 'BPS(円)<br>指数ベース', value: r => bps(r, 'i'), digits: 0 },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-name: 騰落レシオ・信用残・裁定残を記録
+name: 市場データを記録
 
 on:
   schedule:
@@ -28,6 +28,8 @@ jobs:
         run: python scripts/fetch_sinyou.py
       - name: 裁定残を取得
         run: python scripts/fetch_saitei.py
+      - name: PER・PBR・国債利回りを取得
+        run: python scripts/fetch_valuation.py
       - name: 変更があればコミット
         run: |
           if git diff --quiet -- data/*.csv; then

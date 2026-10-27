@@ -27,3 +27,9 @@ function syncTimeScales(charts) {
     syncing = false;
   });
 }
+
+// タブが画面幅に収まらないとき、今のページのタブが見える位置まで横スクロールする
+document.addEventListener('DOMContentLoaded', () => {
+  const cur = document.querySelector('.tabs [aria-current="page"]');
+  if (cur) cur.parentElement.scrollLeft = cur.offsetLeft - 16;
+});

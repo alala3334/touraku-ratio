@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>信用残・評価損益率</title>
-<link rel="stylesheet" href="assets/style.css?v=3">
+<link rel="stylesheet" href="assets/style.css?v=5">
 <style>
 #pnlChart { height: 280px; }
 #ratioChart { height: 150px; }
@@ -14,7 +14,7 @@
 </head>
 <body>
 <main>
-  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html" aria-current="page">信用残・評価損益率</a><a href="saitei.html">裁定残</a></nav>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html" aria-current="page">信用残</a><a href="saitei.html">裁定残</a><a href="per.html">PER</a><a href="pbr.html">PBR</a><a href="kokusai.html">国債金利</a></nav>
   <header>
     <h1>信用残・評価損益率</h1>
     <p>二市場 信用取引残高（週次） · 出典 <a href="https://nikkei225jp.com/data/sinyou.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
@@ -54,7 +54,7 @@
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="assets/common.js?v=3"></script>
+<script src="assets/common.js?v=5"></script>
 <script>
 // 評価損益率の目安: -3% 超は天井圏、-15% 未満は底値圏（元サイトの色分けと同じ基準）
 const state = v => v == null ? null : v > -3 ? ['hot', '天井圏'] : v < -15 ? ['cold', '底値圏'] : ['mid', '中立'];

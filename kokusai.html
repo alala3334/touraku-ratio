@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10年国債利回り</title>
+<link rel="stylesheet" href="assets/style.css?v=5">
+</head>
+<body>
+<main>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html">信用残</a><a href="saitei.html">裁定残</a><a href="per.html">PER</a><a href="pbr.html">PBR</a><a href="kokusai.html" aria-current="page">国債金利</a></nav>
+  <header>
+    <h1>10年国債利回り</h1>
+    <p>日本国債 10年物利回り（日次） · 出典 <a href="https://nikkei225jp.com/data/per.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="basis" role="group" aria-label="計算方法" hidden>
+        <button data-b="w" aria-pressed="true">加重平均</button><button data-b="i">指数ベース</button>
+      </div>
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="3">3カ月</button><button data-m="12">1年</button><button data-m="36" aria-pressed="true">3年</button><button data-m="60">5年</button><button data-m="120">10年</button><button data-m="0">全期間</button>
+      </div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div id="charts"></div>
+    <p class="note">イールドスプレッド = 日経225の益回り（1 ÷ PER、加重平均）− 10年国債利回り。大きいほど株が債券に比べて割安とされます。</p>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>日次データ</h2>
+      
+      <a href="data/valuation.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+    <p><button id="showAll" class="more" hidden>すべての日を表示</button></p>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/common.js?v=5"></script>
+<script src="assets/valuation.js?v=5"></script>
+<script>
+const jgb = r => r.jgb10;
+const earn = r => r.per_w ? 100 / r.per_w : null;
+const spread = r => earn(r) != null && r.jgb10 != null ? earn(r) - r.jgb10 : null;
+renderValuationPage({
+  basisToggle: false,
+  charts: [
+    { id: 'jgbChart', title: '10年国債利回り（%）', note: '点線: 0%', height: 280, digits: 3,
+      lines: [{ label: '10年債', unit: '%', color: '--series-1', width: 2, value: jgb }], refs: [{ v: 0, color: '--text-muted' }] },
+    { id: 'spreadChart', title: 'イールドスプレッド（%）= 益回り − 10年債利回り', height: 170, digits: 2,
+      lines: [{ label: 'スプレッド', unit: '%', color: '--series-2', value: spread }] },
+    { id: 'nikkeiChart', title: '日経225 終値', height: 160, digits: 0,
+      lines: [{ label: '日経', color: '--nikkei', value: r => r.nikkei }] },
+  ],
+  tiles: (last, prev, b, tile) => {
+    const bp = (last.jgb10 - prev.jgb10) * 100;
+    return tile('10年国債利回り', `${fmt(last.jgb10, 3)}<small>%</small>`, `${last.date} · 前日比 ${(bp >= 0 ? '+' : '') + fmt(bp, 1)}bp`, true) +
+      tile('日経225 益回り', `${fmt(earn(last))}<small>%</small>`, '1 ÷ PER（加重平均）') +
+      tile('イールドスプレッド', `${fmt(spread(last))}<small>%</small>`, '益回り − 10年債') +
+      tile('配当利回り', `${fmt(last.div_w)}<small>%</small>`, '加重平均') +
+      tile('日経225', fmt(last.nikkei), last.date);
+  },
+  columns: [
+    { label: '日経225', value: r => r.nikkei, digits: 2 },
+    { label: '10年債<br>利回り(%)', value: jgb, digits: 3 },
+    { label: '前日比<br>(bp)', value: (r, b, p) => p && r.jgb10 != null && p.jgb10 != null ? (r.jgb10 - p.jgb10) * 100 : null, digits: 1 },
+    { label: '益回り<br>(%)', value: earn, digits: 2 },
+    { label: 'イールド<br>スプレッド(%)', value: spread, digits: 2 },
+    { label: '配当利回り<br>(%)', value: r => r.div_w, digits: 2 },
+  ],
+});
+</script>
+</body>
+</html>

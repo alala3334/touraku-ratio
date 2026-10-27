@@ -89,5 +89,6 @@ td.cold, .badge.cold { background: #2a6fd0; color: #fff; font-weight: 700; }
 #error { color: var(--hot); }
 /* ページ切り替えタブ */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 14px; overflow-x: auto; }
-.tabs a { padding: 8px 14px; color: var(--text-secondary); text-decoration: none; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs a { padding: 8px 11px; color: var(--text-secondary); text-decoration: none; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tabs a[aria-current="page"] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--series-1); }
+.more { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); padding: 6px 14px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; }
