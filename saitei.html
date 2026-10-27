@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>裁定残</title>
+<link rel="stylesheet" href="assets/style.css?v=3">
+<style>
+#balanceChart { height: 300px; }
+#changeChart { height: 150px; }
+#nikkeiChart { height: 160px; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html">信用残・評価損益率</a><a href="saitei.html" aria-current="page">裁定残</a></nav>
+  <header>
+    <h1>裁定買い残・売り残</h1>
+    <p>プログラム売買の裁定取引残高 · 出典 <a href="https://nikkei225jp.com/data/saitei.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="mode" role="group" aria-label="表示する値">
+        <button data-mode="amount" aria-pressed="true">金額（週次）</button><button data-mode="shares">株数（日次）</button>
+      </div>
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="3">3カ月</button><button data-m="6">6カ月</button><button data-m="12" aria-pressed="true">1年</button><button data-m="0">全期間</button>
+      </div>
+      <div class="toggles" id="toggles"></div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="chart-title" id="balanceTitle"></div>
+    <div id="balanceChart"></div>
+    <div class="chart-title" id="changeTitle"></div>
+    <div id="changeChart"></div>
+    <div class="chart-title">日経225 終値</div>
+    <div id="nikkeiChart"></div>
+    <p class="note">金額は週次（週末の日付）、株数は日次で発表されます。</p>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>データ</h2>
+      <a href="data/saitei.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/common.js?v=3"></script>
+<script>
+// 金額は億円（週次）、株数はチャートでは億株（元データは千株、日次）
+const MODES = {
+  amount: { buy: 'buy_amount', sell: 'sell_amount', scale: 1, unit: '億円', digits: 0, title: '裁定残 金額（億円）', change: '裁定買い残 前週比（億円）', every: '週' },
+  shares: { buy: 'buy_shares', sell: 'sell_shares', scale: 1 / 100000, unit: '億株', digits: 2, title: '裁定残 株数（億株）', change: '裁定買い残 前日比（億株）', every: '日' },
+};
+const SIDES = [
+  { key: 'buy', label: '買い残', color: '--series-1' },
+  { key: 'sell', label: '売り残', color: '--series-2' },
+];
+
+let rows = [], mode = 'amount', months = 12, view = [], byTime = new Map();
+let balanceChart, changeChart, nikkeiChart, lines = {}, changeSeries, nikkeiLine;
+
+async function main() {
+  const res = await fetch('data/saitei.json', { cache: 'no-cache' });
+  const json = await res.json();
+  rows = json.rows.map(r => Object.fromEntries(json.fields.map((k, i) => [k, r[i]])));
+  // 前回発表からの変化（値がない日は飛ばして直前の値と比べる）
+  for (const key of ['buy_amount', 'sell_amount', 'buy_shares', 'sell_shares']) {
+    let prev = null;
+    for (const r of rows) {
+      if (r[key] == null) continue;
+      r[key + '_chg'] = prev == null ? null : r[key] - prev;
+      prev = r[key];
+    }
+  }
+  document.getElementById('updated').textContent = json.updated.replace('T', ' ');
+  renderTiles();
+  renderTable();
+  buildCharts();
+  setMode('amount');
+}
+
+const latest = key => [...rows].reverse().find(r => r[key] != null);
+const signed = (v, d) => v == null ? '-' : (v >= 0 ? '+' : '') + fmt(v, d);
+
+function renderTiles() {
+  const a = latest('buy_amount'), s = latest('buy_shares'), n = rows[rows.length - 1];
+  const tile = (label, value, sub, hero) => `<div class="tile${hero ? ' hero' : ''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile('裁定買い残（金額）', `${fmt(a.buy_amount / 10000)}<small>兆円</small>`, `${a.date} 週 · 前週比 ${signed(a.buy_amount_chg, 0)}億円`, true) +
+    tile('裁定売り残（金額）', `${fmt(a.sell_amount, 0)}<small>億円</small>`, `前週比 ${signed(a.sell_amount_chg, 0)}億円`) +
+    tile('裁定買い残（株数）', `${fmt(s.buy_shares / 100000)}<small>億株</small>`, `${s.date} · 前日比 ${signed(s.buy_shares_chg / 100000)}億株`) +
+    tile('裁定売り残（株数）', `${fmt(s.sell_shares / 100000)}<small>億株</small>`, `前日比 ${signed(s.sell_shares_chg / 100000)}億株`) +
+    tile('日経225', fmt(n.nikkei), n.date);
+}
+
+function renderTable() {
+  let h = '<thead><tr><th>日付</th><th>日経225</th><th>売買代金<br>(億円)</th><th>買い残<br>(千株)</th><th>前日比<br>(千株)</th><th>売り残<br>(千株)</th><th>前日比<br>(千株)</th><th>買い残<br>(億円)</th><th>前週比<br>(億円)</th><th>売り残<br>(億円)</th><th>前週比<br>(億円)</th><th>差引<br>(億円)</th></tr></thead><tbody>';
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    if (r.buy_shares == null && r.buy_amount == null) continue;
+    const net = r.buy_amount != null && r.sell_amount != null ? r.buy_amount - r.sell_amount : null;
+    h += `<tr><td>${r.date}</td><td>${fmt(r.nikkei)}</td><td>${fmt(r.turnover, 0)}</td>` +
+      `<td>${fmt(r.buy_shares, 0)}</td><td>${signed(r.buy_shares_chg, 0)}</td><td>${fmt(r.sell_shares, 0)}</td><td>${signed(r.sell_shares_chg, 0)}</td>` +
+      `<td>${fmt(r.buy_amount, 0)}</td><td>${signed(r.buy_amount_chg, 0)}</td><td>${fmt(r.sell_amount, 0)}</td><td>${signed(r.sell_amount_chg, 0)}</td><td>${fmt(net, 0)}</td></tr>`;
+  }
+  document.getElementById('table').innerHTML = h + '</tbody>';
+}
+
+function buildCharts() {
+  balanceChart = LightweightCharts.createChart(document.getElementById('balanceChart'), chartOptions(0));
+  changeChart = LightweightCharts.createChart(document.getElementById('changeChart'), chartOptions(0));
+  nikkeiChart = LightweightCharts.createChart(document.getElementById('nikkeiChart'), chartOptions(0));
+  const toggles = document.getElementById('toggles');
+  for (const s of SIDES) {
+    lines[s.key] = balanceChart.addLineSeries({ lineWidth: s.key === 'buy' ? 2 : 1.5, priceLineVisible: false, crosshairMarkerRadius: 4 });
+    toggles.insertAdjacentHTML('beforeend', `<label><input type="checkbox" id="tg-${s.key}" checked><span class="swatch" data-c="${s.color}"></span>${s.label}</label>`);
+    document.getElementById('tg-' + s.key).addEventListener('change', e => lines[s.key].applyOptions({ visible: e.target.checked }));
+  }
+  changeSeries = changeChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+  nikkeiLine = nikkeiChart.addLineSeries({ lineWidth: 1.5, priceLineVisible: false, crosshairMarkerRadius: 4 });
+  applyTheme();
+
+  const all = [balanceChart, changeChart, nikkeiChart];
+  syncTimeScales(all);
+  const targets = [[balanceChart, () => lines.buy, r => r[MODES[mode].buy] * MODES[mode].scale], [changeChart, () => changeSeries, r => r[MODES[mode].buy + '_chg'] * MODES[mode].scale], [nikkeiChart, () => nikkeiLine, r => r.nikkei]];
+  for (const [src] of targets) src.subscribeCrosshairMove(p => {
+    showReadout(p.time);
+    for (const [dst, series, value] of targets) {
+      if (dst === src) continue;
+      const r = p.time && byTime.get(p.time);
+      const v = r ? value(r) : null;
+      if (v != null && isFinite(v)) dst.setCrosshairPosition(v, p.time, series()); else dst.clearCrosshairPosition();
+    }
+  });
+
+  document.querySelectorAll('#mode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#range button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    months = Number(b.dataset.m);
+    setRange();
+  }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+}
+
+// 金額（週次）と株数（日次）は発表間隔が違うので、モードごとにその値がある日だけを並べる
+function setMode(m) {
+  mode = m;
+  const M = MODES[m];
+  document.querySelectorAll('#mode button').forEach(x => x.setAttribute('aria-pressed', x.dataset.mode === m));
+  document.getElementById('balanceTitle').textContent = M.title;
+  document.getElementById('changeTitle').textContent = M.change;
+  view = rows.filter(r => r[M.buy] != null);
+  byTime = new Map(view.map(r => [r.date, r]));
+  for (const s of SIDES) lines[s.key].setData(view.map(r => r[M[s.key]] == null ? { time: r.date } : { time: r.date, value: r[M[s.key]] * M.scale }));
+  changeSeries.setData(view.map(r => {
+    const v = r[M.buy + '_chg'];
+    return v == null ? { time: r.date } : { time: r.date, value: v * M.scale, color: css(v >= 0 ? '--series-1' : '--series-2') };
+  }));
+  nikkeiLine.setData(view.map(r => ({ time: r.date, value: r.nikkei })));
+  balanceChart.applyOptions(chartOptions(M.digits));
+  changeChart.applyOptions(chartOptions(M.digits));
+  setRange();
+  showReadout(null);
+}
+
+function applyTheme() {
+  balanceChart.applyOptions(chartOptions(MODES[mode].digits));
+  changeChart.applyOptions(chartOptions(MODES[mode].digits));
+  nikkeiChart.applyOptions(chartOptions(0));
+  for (const s of SIDES) lines[s.key].applyOptions({ color: css(s.color) });
+  nikkeiLine.applyOptions({ color: css('--nikkei') });
+  document.querySelectorAll('.swatch').forEach(el => el.style.background = css(el.dataset.c));
+  if (view.length) setMode(mode);
+}
+
+function showReadout(t) {
+  const M = MODES[mode];
+  const r = byTime.get(t) || view[view.length - 1];
+  if (!r) return;
+  const v = k => fmt(r[M[k]] == null ? null : r[M[k]] * M.scale, M.digits);
+  const c = r[M.buy + '_chg'];
+  document.getElementById('readout').innerHTML =
+    `<span><b>${r.date}</b></span><span>買い残 <b>${v('buy')}</b>${M.unit}</span><span>売り残 <b>${v('sell')}</b>${M.unit}</span>` +
+    `<span>買い残 前${M.every}比 <b>${signed(c == null ? null : c * M.scale, M.digits)}</b>${M.unit}</span><span>日経 <b>${fmt(r.nikkei)}</b></span>`;
+}
+
+function setRange() {
+  const ts = balanceChart.timeScale();
+  if (!months || !view.length) { ts.fitContent(); return; }
+  const last = view[view.length - 1].date;
+  const d = new Date(last); d.setMonth(d.getMonth() - months);
+  ts.setVisibleRange({ from: d.toISOString().slice(0, 10), to: last });
+}
+
+main().catch(e => { document.getElementById('error').textContent = 'データの読み込みに失敗しました: ' + e.message; });
+</script>
+</body>
+</html>

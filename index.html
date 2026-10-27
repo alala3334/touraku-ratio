@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>騰落レシオ記録</title>
-<link rel="stylesheet" href="assets/style.css?v=2">
+<link rel="stylesheet" href="assets/style.css?v=3">
 <style>
 #ratioChart { height: 340px; }
 #nikkeiChart { height: 170px; }
@@ -12,7 +12,7 @@
 </head>
 <body>
 <main>
-  <nav class="tabs"><a href="./" aria-current="page">騰落レシオ</a><a href="sinyou.html">信用残・評価損益率</a></nav>
+  <nav class="tabs"><a href="./" aria-current="page">騰落レシオ</a><a href="sinyou.html">信用残・評価損益率</a><a href="saitei.html">裁定残</a></nav>
   <header>
     <h1>騰落レシオ記録</h1>
     <p>東証プライム 値上がり/値下がり銘柄数から算出 · 出典 <a href="https://nikkei225jp.com/data/touraku.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
@@ -46,7 +46,7 @@
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="assets/common.js?v=2"></script>
+<script src="assets/common.js?v=3"></script>
 <script>
 const SERIES = [
   { key: 'r25', label: '25日', color: '--series-1', on: true, width: 2 },
