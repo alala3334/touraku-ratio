@@ -21,8 +21,6 @@
   --nikkei: #52514e;
   --hot: #e34948;
   --cold: #2a78d6;
-  --hot-bg: #fbe9e8;
-  --cold-bg: #e6f0fb;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -41,8 +39,6 @@
     --nikkei: #c3c2b7;
     --hot: #e66767;
     --cold: #3987e5;
-    --hot-bg: #3a1f1f;
-    --cold-bg: #1a2a3d;
   }
 }
 :root[data-theme="dark"] {
@@ -50,7 +46,7 @@
   --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2b; --grid: #262624;
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c85;
   --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
-  --nikkei: #c3c2b7; --hot: #e66767; --cold: #3987e5; --hot-bg: #3a1f1f; --cold-bg: #1a2a3d;
+  --nikkei: #c3c2b7; --hot: #e66767; --cold: #3987e5;
 }
 * { box-sizing: border-box; }
 body {
@@ -69,8 +65,6 @@ header a { color: inherit; }
 .tile.hero .value { font-size: 34px; }
 .tile .sub { color: var(--text-muted); font-size: 12px; }
 .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: middle; font-weight: 500; }
-.badge.hot { background: var(--hot-bg); color: var(--text-primary); }
-.badge.cold { background: var(--cold-bg); color: var(--text-primary); }
 .badge.mid { background: var(--grid); color: var(--text-secondary); }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 8px; }
@@ -91,8 +85,11 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th { color: var(--text-secondary); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--surface-1); }
 th:first-child, td:first-child { text-align: left; }
-td.hot { background: var(--hot-bg); }
-td.cold { background: var(--cold-bg); }
+/* 買われすぎ/売られすぎのセルは、はっきり見えるよう濃い色で塗りつぶし、白文字にする */
+td.hot, .badge.hot { background: #d63b3a; color: #fff; font-weight: 700; }
+td.cold, .badge.cold { background: #2a6fd0; color: #fff; font-weight: 700; }
+.legend-note { font-size: 12px; color: var(--text-secondary); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.legend-note .chip { display: inline-block; padding: 0 8px; border-radius: 4px; }
 .table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
 .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .row-head h2 { font-size: 15px; margin: 0 0 6px; }
@@ -127,6 +124,7 @@ td.cold { background: var(--cold-bg); }
   <section class="card">
     <div class="row-head">
       <h2>日次データ</h2>
+      <span class="legend-note"><span class="chip" style="background:#d63b3a;color:#fff;font-weight:700">120以上 買われすぎ</span><span class="chip" style="background:#2a6fd0;color:#fff;font-weight:700">70以下 売られすぎ</span></span>
       <a href="data/touraku.csv" download>CSV をダウンロード</a>
     </div>
     <div class="table-wrap"><table id="table"></table></div>
