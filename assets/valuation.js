@@ -6,6 +6,8 @@
 //   tiles(last, prev, basis): タイルの HTML
 //   columns: [{ label, value(r, basis), digits, cls(v) }]
 //   state(r, basis): 読み出し欄に出す目安（例: ['hot', '割高']）。不要なら省略
+//   extra: 追加で読み込むデータファイル（例: ['data/us10y.json']）。日付で突き合わせて行に足す
+//   prepare(rows): 読み込み後に行へ計算済みの値を足したいときに使う
 const BASIS = { w: '加重平均', i: '指数ベース' };
 
 function renderValuationPage(config) {
@@ -14,10 +16,17 @@ function renderValuationPage(config) {
   const tile = (label, value, sub, hero) => `<div class="tile${hero ? ' hero' : ''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub || ''}</div></div>`;
 
   async function main() {
-    const res = await fetch('data/valuation.json', { cache: 'no-cache' });
-    const json = await res.json();
-    rows = json.rows.map(r => Object.fromEntries(json.fields.map((k, i) => [k, r[i]])));
-    rows.forEach(r => byTime.set(r.date, r));
+    const load = async url => {
+      const json = await (await fetch(url, { cache: 'no-cache' })).json();
+      return { json, rows: json.rows.map(r => Object.fromEntries(json.fields.map((k, i) => [k, r[i]]))) };
+    };
+    const [main, ...extras] = await Promise.all(['data/valuation.json', ...(config.extra || [])].map(load));
+    const json = main.json;
+    main.rows.forEach(r => byTime.set(r.date, r));
+    // 追加データは日付で突き合わせる。日本が休みで米国だけ営業の日などは、その日の行を新しく作る
+    for (const e of extras) for (const r of e.rows) byTime.set(r.date, { ...(byTime.get(r.date) || {}), ...r });
+    rows = [...byTime.values()].sort((a, b) => a.date < b.date ? -1 : 1);
+    if (config.prepare) config.prepare(rows);
     document.getElementById('updated').textContent = json.updated.replace('T', ' ');
     if (config.basisToggle) {
       document.getElementById('basis').hidden = false;
@@ -39,7 +48,7 @@ function renderValuationPage(config) {
     document.querySelectorAll('#basis button').forEach(x => x.setAttribute('aria-pressed', x.dataset.b === basis));
     document.querySelectorAll('.basis-name').forEach(el => el.textContent = config.basisToggle ? `（${BASIS[basis]}）` : '');
     const last = rows[rows.length - 1], prev = rows[rows.length - 2];
-    document.getElementById('tiles').innerHTML = config.tiles(last, prev, basis, tile);
+    document.getElementById('tiles').innerHTML = config.tiles(last, prev, basis, tile, rows);
     renderTable();
     setData();
     showReadout(null);
@@ -112,10 +121,13 @@ function renderValuationPage(config) {
       b.chart.applyOptions(chartOptions(b.conf.digits));
       b.conf.lines.forEach((l, i) => { if (!b.conf.hist) b.series[i].applyOptions({ color: css(l.color) }); });
     }
+    document.querySelectorAll('.swatch').forEach(el => el.style.background = css(el.dataset.c));
   }
 
   function showReadout(t) {
-    const r = byTime.get(t) || rows[rows.length - 1];
+    // カーソルがないときは、全チャートの値がそろっている最新の日を出す（米国債の反映待ちの日などを避ける）
+    const complete = r => built.every(b => b.conf.lines.every(l => { const v = l.value(r, basis); return v != null && isFinite(v); }));
+    const r = byTime.get(t) || [...rows].reverse().find(complete) || rows[rows.length - 1];
     const parts = [`<span><b>${r.date}</b></span>`];
     for (const b of built) for (const l of b.conf.lines) {
       parts.push(`<span>${l.label} <b>${fmt(l.value(r, basis), b.conf.digits)}</b>${l.unit || ''}</span>`);

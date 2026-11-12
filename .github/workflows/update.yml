@@ -30,6 +30,8 @@ jobs:
         run: python scripts/fetch_saitei.py
       - name: PER・PBR・国債利回りを取得
         run: python scripts/fetch_valuation.py
+      - name: 米国10年債利回りを取得
+        run: python scripts/fetch_us10y.py
       - name: 変更があればコミット
         run: |
           if git diff --quiet -- data/*.csv; then

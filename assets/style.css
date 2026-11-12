@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 :root {
   color-scheme: light;
   --surface-0: #f4f3f0;
@@ -51,13 +52,20 @@ main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
 header h1 { font-size: 20px; margin: 0 0 2px; }
 header p { margin: 0; color: var(--text-secondary); font-size: 12px; }
 header a { color: inherit; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
-.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-.tile .label { color: var(--text-secondary); font-size: 12px; }
-.tile .value { font-size: 26px; font-weight: 600; line-height: 1.2; }
-.tile.hero .value { font-size: 34px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 16px 0; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .label { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+.tile .value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 2px 0; letter-spacing: -0.01em; }
+.tile.hero .value { font-size: 46px; }
+/* スマホでは一番大事な数字を横いっぱいに使って大きく見せる */
+@media (max-width: 600px) {
+  .tile.hero { grid-column: 1 / -1; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile .value { font-size: clamp(24px, 8vw, 34px); }
+  .tile.hero .value { font-size: clamp(40px, 13vw, 54px); }
+}
 .tile .value small { font-size: 55%; font-weight: 500; margin-left: 2px; white-space: nowrap; }
-.tile .sub { color: var(--text-muted); font-size: 12px; }
+.tile .sub { color: var(--text-secondary); font-size: 13px; }
 .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: middle; font-weight: 500; }
 .badge.mid { background: var(--grid); color: var(--text-secondary); }
 .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
@@ -69,7 +77,7 @@ header a { color: inherit; }
 .toggles { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--text-secondary); }
 .toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
 .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
-.readout { font-size: 13px; color: var(--text-secondary); min-height: 20px; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.readout { font-size: 14px; color: var(--text-secondary); min-height: 20px; display: flex; flex-wrap: wrap; gap: 2px 14px; }
 .readout b { color: var(--text-primary); font-weight: 600; }
 .chart-title { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
 .note { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; }

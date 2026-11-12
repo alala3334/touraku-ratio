@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>10年国債利回り</title>
-<link rel="stylesheet" href="assets/style.css?v=5">
+<title>日米10年国債利回り</title>
+<link rel="stylesheet" href="assets/style.css?v=7">
 </head>
 <body>
 <main>
   <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html">信用残</a><a href="saitei.html">裁定残</a><a href="per.html">PER</a><a href="pbr.html">PBR</a><a href="kokusai.html" aria-current="page">国債金利</a></nav>
   <header>
-    <h1>10年国債利回り</h1>
-    <p>日本国債 10年物利回り（日次） · 出典 <a href="https://nikkei225jp.com/data/per.php" target="_blank" rel="noopener">nikkei225jp.com</a> · 最終更新 <span id="updated">-</span></p>
+    <h1>日米10年国債利回り</h1>
+    <p>日本国債・米国債 10年物利回り（日次） · 出典 日本: <a href="https://nikkei225jp.com/data/per.php" target="_blank" rel="noopener">nikkei225jp.com</a> / 米国: <a href="https://fred.stlouisfed.org/series/DGS10" target="_blank" rel="noopener">FRED (DGS10)</a> · 最終更新 <span id="updated">-</span></p>
   </header>
 
   <section class="tiles" id="tiles"></section>
@@ -28,7 +28,7 @@
     </div>
     <div class="readout" id="readout"></div>
     <div id="charts"></div>
-    <p class="note">イールドスプレッド = 日経225の益回り（1 ÷ PER、加重平均）− 10年国債利回り。大きいほど株が債券に比べて割安とされます。</p>
+    <p class="note">日米金利差が広がるとドル高・円安になりやすいとされます。イールドスプレッド = 日経225の益回り（1 ÷ PER、加重平均）− 日本10年債利回りで、大きいほど株が債券に比べて割安とされます。米国債のデータは1〜2営業日遅れて反映されます。</p>
   </section>
 
   <section class="card">
@@ -43,39 +43,60 @@
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="assets/common.js?v=5"></script>
-<script src="assets/valuation.js?v=5"></script>
+<script src="assets/common.js?v=7"></script>
+<script src="assets/valuation.js?v=7"></script>
 <script>
 const jgb = r => r.jgb10;
+const us = r => r.us10y;
+const gap = r => r.us10y != null && r.jgb10 != null ? r.us10y - r.jgb10 : null;
 const earn = r => r.per_w ? 100 / r.per_w : null;
 const spread = r => earn(r) != null && r.jgb10 != null ? earn(r) - r.jgb10 : null;
+const bp = v => v == null ? '-' : (v >= 0 ? '+' : '') + fmt(v, 1) + 'bp';
+// 日本と米国は休日が違うので、前日比は「その国で直前に値があった日」と比べる
+const latest = (rows, key) => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i][key] != null) return rows[i]; };
 renderValuationPage({
   basisToggle: false,
+  extra: ['data/us10y.json'],
+  prepare: rows => {
+    for (const key of ['jgb10', 'us10y']) {
+      let prev = null;
+      for (const r of rows) {
+        if (r[key] == null) continue;
+        r[key + '_bp'] = prev == null ? null : (r[key] - prev) * 100;
+        prev = r[key];
+      }
+    }
+  },
   charts: [
-    { id: 'jgbChart', title: '10年国債利回り（%）', note: '点線: 0%', height: 280, digits: 3,
-      lines: [{ label: '10年債', unit: '%', color: '--series-1', width: 2, value: jgb }], refs: [{ v: 0, color: '--text-muted' }] },
-    { id: 'spreadChart', title: 'イールドスプレッド（%）= 益回り − 10年債利回り', height: 170, digits: 2,
-      lines: [{ label: 'スプレッド', unit: '%', color: '--series-2', value: spread }] },
+    { id: 'yieldChart', title: '日米10年国債利回り（%）<span class="toggles" style="display:inline-flex;margin-left:10px;font-weight:400"><span><span class="swatch" data-c="--series-1"></span> 日本</span><span><span class="swatch" data-c="--series-2"></span> 米国</span></span>', note: '点線: 0%', height: 300, digits: 3,
+      lines: [{ label: '日本10年債', unit: '%', color: '--series-1', width: 2, value: jgb }, { label: '米国10年債', unit: '%', color: '--series-2', width: 2, value: us }], refs: [{ v: 0, color: '--text-muted' }] },
+    { id: 'gapChart', title: '日米金利差（%）= 米国 − 日本', height: 160, digits: 2,
+      lines: [{ label: '日米金利差', unit: '%', color: '--series-3', value: gap }] },
+    { id: 'spreadChart', title: 'イールドスプレッド（%）= 日経225の益回り − 日本10年債', height: 160, digits: 2,
+      lines: [{ label: 'スプレッド', unit: '%', color: '--series-4', value: spread }] },
     { id: 'nikkeiChart', title: '日経225 終値', height: 160, digits: 0,
       lines: [{ label: '日経', color: '--nikkei', value: r => r.nikkei }] },
   ],
-  tiles: (last, prev, b, tile) => {
-    const bp = (last.jgb10 - prev.jgb10) * 100;
-    return tile('10年国債利回り', `${fmt(last.jgb10, 3)}<small>%</small>`, `${last.date} · 前日比 ${(bp >= 0 ? '+' : '') + fmt(bp, 1)}bp`, true) +
-      tile('日経225 益回り', `${fmt(earn(last))}<small>%</small>`, '1 ÷ PER（加重平均）') +
-      tile('イールドスプレッド', `${fmt(spread(last))}<small>%</small>`, '益回り − 10年債') +
-      tile('配当利回り', `${fmt(last.div_w)}<small>%</small>`, '加重平均') +
-      tile('日経225', fmt(last.nikkei), last.date);
+  tiles: (last, prev, b, tile, rows) => {
+    const jp = latest(rows, 'jgb10'), u = latest(rows, 'us10y'), both = rows.filter(r => gap(r) != null).pop(), nk = latest(rows, 'nikkei');
+    return tile('日本 10年国債利回り', `${fmt(jp.jgb10, 3)}<small>%</small>`, `${jp.date} · 前日比 ${bp(jp.jgb10_bp)}`, true) +
+      tile('米国 10年国債利回り', `${fmt(u.us10y, 3)}<small>%</small>`, `${u.date} · 前日比 ${bp(u.us10y_bp)}`, true) +
+      tile('日米金利差', `${fmt(gap(both))}<small>%</small>`, `米国 − 日本（${both.date}）`) +
+      tile('イールドスプレッド', `${fmt(spread(nk))}<small>%</small>`, '益回り − 日本10年債') +
+      tile('日経225', fmt(nk.nikkei), nk.date);
   },
   columns: [
     { label: '日経225', value: r => r.nikkei, digits: 2 },
-    { label: '10年債<br>利回り(%)', value: jgb, digits: 3 },
-    { label: '前日比<br>(bp)', value: (r, b, p) => p && r.jgb10 != null && p.jgb10 != null ? (r.jgb10 - p.jgb10) * 100 : null, digits: 1 },
+    { label: '日本10年債<br>(%)', value: jgb, digits: 3 },
+    { label: '前日比<br>(bp)', value: r => r.jgb10_bp, digits: 1 },
+    { label: '米国10年債<br>(%)', value: us, digits: 3 },
+    { label: '前日比<br>(bp)', value: r => r.us10y_bp, digits: 1 },
+    { label: '日米金利差<br>(%)', value: gap, digits: 2 },
     { label: '益回り<br>(%)', value: earn, digits: 2 },
     { label: 'イールド<br>スプレッド(%)', value: spread, digits: 2 },
-    { label: '配当利回り<br>(%)', value: r => r.div_w, digits: 2 },
   ],
 });
+
 </script>
 </body>
 </html>
