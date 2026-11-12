@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>日経225 PER</title>
-<link rel="stylesheet" href="assets/style.css?v=7">
+<link rel="stylesheet" href="assets/style.css?v=8">
 </head>
 <body>
 <main>
@@ -43,8 +43,8 @@
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="assets/common.js?v=7"></script>
-<script src="assets/valuation.js?v=7"></script>
+<script src="assets/common.js?v=8"></script>
+<script src="assets/valuation.js?v=8"></script>
 <script>
 // 目安は加重平均の PER に対するもの（指数ベースは水準が違うので色分けしない）
 const perState = (v, b = 'w') => v == null || b !== 'w' ? null : v > 16 ? ['hot', '割高圏'] : v < 14 ? ['cold', '割安圏'] : ['mid', '適正水準'];
