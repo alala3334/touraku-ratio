@@ -102,7 +102,7 @@ td.cold, .badge.cold { background: #2a6fd0; color: #fff; font-weight: 700; }
   background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; }
 .tabs a[aria-current="page"] { color: #fff; background: var(--series-1); border-color: var(--series-1); }
 @media (max-width: 600px) {
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
-  .tabs a { padding: 14px 4px; font-size: 17px; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .tabs a { padding: 14px 2px; font-size: 15px; }
 }
 .more { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); padding: 6px 14px; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; }
