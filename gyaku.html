@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>米国債 逆イールド</title>
+<link rel="stylesheet" href="assets/style.css?v=10">
+<style>
+#curve { width: 100%; height: 260px; display: block; }
+#curve text { font-size: 12px; fill: var(--text-secondary); }
+.curve-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--text-secondary); margin: 2px 0 4px; }
+.curve-legend b { color: var(--text-primary); font-weight: 600; }
+.rec-chip { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="tabs"><a href="./">騰落レシオ</a><a href="sinyou.html">信用残</a><a href="saitei.html">裁定残</a><a href="per.html">PER</a><a href="pbr.html">PBR</a><a href="kokusai.html">国債金利</a><a href="kairi.html">乖離率</a><a href="gyaku.html" aria-current="page">逆イールド</a></nav>
+  <header>
+    <h1>米国債 逆イールド</h1>
+    <p>米国債の長短金利差とイールドカーブ（日次） · 出典 <a href="https://fred.stlouisfed.org/categories/115" target="_blank" rel="noopener">FRED</a>（DGS3MO / DGS2 / DGS5 / DGS10 / DGS30、景気後退期は USREC） · 最終更新 <span id="updated">-</span></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+  <p id="error"></p>
+
+  <section class="card">
+    <div class="controls">
+      <div class="seg" id="range" role="group" aria-label="表示期間">
+        <button data-m="12">1年</button><button data-m="36">3年</button><button data-m="60">5年</button><button data-m="120" aria-pressed="true">10年</button><button data-m="0">全期間</button>
+      </div>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="chart-title">長短金利差（%）<span class="toggles" style="display:inline-flex;margin-left:10px;font-weight:400"><span><span class="swatch" data-c="--series-1"></span> 10年 − 2年</span><span><span class="swatch" data-c="--series-2"></span> 10年 − 3カ月</span><span><span class="rec-chip" data-bg="--rec"></span> 米国の景気後退期</span></span><span class="note"> 点線: 0%（下回ると逆イールド）</span></div>
+    <div id="spreadChart" style="height:300px"></div>
+    <div class="chart-title">米国債利回り（%）<span class="toggles" style="display:inline-flex;margin-left:10px;font-weight:400"><span><span class="swatch" data-c="--series-4"></span> 3カ月</span><span><span class="swatch" data-c="--series-2"></span> 2年</span><span><span class="swatch" data-c="--series-1"></span> 10年</span></span></div>
+    <div id="yieldChart" style="height:200px"></div>
+    <p class="note">ふつうは期間の長い国債ほど利回りが高く、長短金利差はプラスです。短期の利回りが長期を上回ってマイナスになった状態が「逆イールド」で、米国ではそのあと1〜2年ほどで景気後退が来ることが多く、景気後退のサインとされます。逆イールドが解消してプラスに戻る前後に景気後退が始まった例が多く、解消したあとも注意が必要とされます。10年−3カ月は、米国の中央銀行（FRB）の研究で景気後退の予測に使われる組み合わせです。グレーの帯は全米経済研究所（NBER）が判定した景気後退期で、判定が出るまで数カ月〜1年ほど遅れます。データは1〜2営業日遅れて反映されます。</p>
+  </section>
+
+  <section class="card">
+    <h2 style="font-size:15px;margin:0 0 4px">イールドカーブ（利回り曲線）</h2>
+    <div class="curve-legend" id="curveLegend"></div>
+    <svg id="curve" role="img" aria-label="米国債のイールドカーブ"></svg>
+    <p class="note">横軸は国債の期間、縦軸は利回りです。右上がりがふつうの形で、右下がり（短期のほうが高い）が逆イールドです。上のチャートにカーソルを合わせる（スマホは指でなぞる）と、その日のカーブに切り替わります。</p>
+  </section>
+
+  <section class="card">
+    <div class="row-head">
+      <h2>日次データ（%）</h2>
+      <span class="legend-note"><span class="chip" style="background:#d63b3a;color:#fff;font-weight:700">マイナス = 逆イールド</span></span>
+      <a href="data/yield.csv" download>CSV をダウンロード</a>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+    <p><button id="showAll" class="more" hidden>すべての日を表示</button></p>
+  </section>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="assets/common.js?v=8"></script>
+<script>
+const s10_2 = r => r.y10 != null && r.y2 != null ? r.y10 - r.y2 : null;
+const s10_3m = r => r.y10 != null && r.y3m != null ? r.y10 - r.y3m : null;
+const MATURITIES = [['y3m', '3カ月'], ['y2', '2年'], ['y5', '5年'], ['y10', '10年'], ['y30', '30年']];
+const signed = (v, d = 2) => v == null ? '-' : (v >= 0 ? '+' : '') + fmt(v, d);
+const invState = v => v == null ? null : v < 0 ? ['hot', '逆イールド'] : ['mid', '通常'];
+
+let rows = [], byTime = new Map(), recessions = [], months = 120, showAll = false, built = [];
+
+const tile = (label, value, sub, hero) => `<div class="tile${hero ? ' hero' : ''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub || ''}</div></div>`;
+
+async function main() {
+  const json = await (await fetch('data/yield.json', { cache: 'no-cache' })).json();
+  rows = json.rows.map(r => Object.fromEntries(json.fields.map((k, i) => [k, r[i]])));
+  recessions = json.recessions || [];
+  rows.forEach(r => byTime.set(r.date, r));
+  document.getElementById('updated').textContent = json.updated.replace('T', ' ');
+  document.querySelectorAll('#range button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#range button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    months = Number(b.dataset.m);
+    setRange();
+  }));
+  document.getElementById('showAll').addEventListener('click', () => { showAll = true; renderTable(); });
+  renderTiles();
+  renderTable();
+  buildCharts();
+  setRange();
+  show(null);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyTheme(); show(null); });
+  addEventListener('resize', () => show(shown));
+}
+
+// 金利差がマイナスだった期間をまとめる。短い間だけプラスに戻ったもの（30日以内）は同じ期間とみなす
+function inversions(value) {
+  const spans = [];
+  for (const r of rows) {
+    const v = value(r);
+    if (v == null || v >= 0) continue;
+    const last = spans[spans.length - 1];
+    if (last && (new Date(r.date) - new Date(last.end)) / 864e5 <= 30) last.end = r.date;
+    else spans.push({ start: r.date, end: r.date });
+  }
+  return spans;
+}
+
+const span = (a, b) => {
+  const m = Math.round((new Date(b) - new Date(a)) / 864e5 / 30.44);
+  return m >= 12 ? `約${Math.floor(m / 12)}年${m % 12 ? m % 12 + 'カ月' : ''}` : `約${Math.max(m, 1)}カ月`;
+};
+
+function renderTiles() {
+  const latest = f => { for (let i = rows.length - 1; i >= 0; i--) if (f(rows[i]) != null) return i; };
+  const spreadTile = (label, f, hero) => {
+    const i = latest(f), r = rows[i], v = f(r), st = invState(v);
+    let j = i - 1; while (j >= 0 && f(rows[j]) == null) j--;
+    const d = j >= 0 ? (v - f(rows[j])) * 100 : null;
+    return tile(label, `${signed(v)}<small>%</small><span class="badge ${st[0]}">${st[1]}</span>`, `${r.date} · 前日比 ${signed(d, 0)}bp`, hero);
+  };
+  const last = rows[latest(s10_2)];
+  const inv = inversions(s10_2), lastInv = inv[inv.length - 1];
+  let invTile = '';
+  if (lastInv) {
+    const ongoing = lastInv.end === last.date;
+    invTile = ongoing
+      ? tile('逆イールド継続中（10年−2年）', span(lastInv.start, last.date), `${lastInv.start} から`)
+      : tile('直近の逆イールド（10年−2年）', `${lastInv.start.slice(0, 7).replace('-', '/')}〜${lastInv.end.slice(0, 7).replace('-', '/')}`, `${span(lastInv.start, lastInv.end)}続いた · 解消から${span(lastInv.end, last.date)}`);
+  }
+  document.getElementById('tiles').innerHTML =
+    spreadTile('長短金利差 10年 − 2年', s10_2, true) +
+    spreadTile('長短金利差 10年 − 3カ月', s10_3m) +
+    invTile +
+    tile('米国 10年債', `${fmt(last.y10)}<small>%</small>`, last.date) +
+    tile('米国 2年債', `${fmt(last.y2)}<small>%</small>`, last.date);
+}
+
+function renderTable() {
+  const LIMIT = 500;
+  const cols = [...MATURITIES.map(([k, l]) => [l, r => r[k], false]), ['10年−2年', s10_2, true], ['10年−3カ月', s10_3m, true]];
+  let h = '<thead><tr><th>日付</th>' + cols.map(c => `<th>${c[0]}</th>`).join('') + '</tr></thead><tbody>';
+  const from = showAll ? 0 : Math.max(0, rows.length - LIMIT);
+  for (let i = rows.length - 1; i >= from; i--) {
+    const r = rows[i];
+    h += `<tr><td>${r.date}</td>` + cols.map(([, f, sp]) => {
+      const v = f(r);
+      return `<td class="${sp && v != null && v < 0 ? 'hot' : ''}">${sp ? signed(v) : fmt(v)}</td>`;
+    }).join('') + '</tr>';
+  }
+  document.getElementById('table').innerHTML = h + '</tbody>';
+  document.getElementById('showAll').hidden = showAll || rows.length <= LIMIT;
+}
+
+const CHARTS = [
+  { id: 'spreadChart', lines: [{ label: '10年−2年', color: '--series-1', width: 2, value: s10_2 }, { label: '10年−3カ月', color: '--series-2', width: 1.5, value: s10_3m }], zero: true },
+  { id: 'yieldChart', lines: [{ label: '3カ月', color: '--series-4', value: r => r.y3m }, { label: '2年', color: '--series-2', value: r => r.y2 }, { label: '10年', color: '--series-1', width: 2, value: r => r.y10 }] },
+];
+
+const inRecession = d => recessions.some(([a, b]) => d >= a && (b == null || d <= b));
+
+function buildCharts() {
+  for (const c of CHARTS) {
+    const chart = LightweightCharts.createChart(document.getElementById(c.id), chartOptions(2));
+    // 景気後退期の帯（線より先に追加して後ろに描く）
+    const rec = chart.addHistogramSeries({ priceScaleId: 'rec', priceLineVisible: false, lastValueVisible: false,
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }) });
+    chart.priceScale('rec').applyOptions({ visible: false, scaleMargins: { top: 0, bottom: 0 } });
+    rec.setData(rows.map(r => inRecession(r.date) ? { time: r.date, value: 1 } : { time: r.date }));
+    const series = c.lines.map(l => {
+      const s = chart.addLineSeries({ lineWidth: l.width || 1.5, priceLineVisible: false, crosshairMarkerRadius: 4 });
+      // 値がない日も時刻だけの点として入れ、2つのチャートの横位置をそろえる
+      s.setData(rows.map(r => { const v = l.value(r); return v == null ? { time: r.date } : { time: r.date, value: v }; }));
+      return s;
+    });
+    if (c.zero) {
+      series[0].createPriceLine({ price: 0, color: css('--text-muted'), lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '' });
+    }
+    built.push({ conf: c, chart, series, rec });
+  }
+  applyTheme();
+  syncTimeScales(built.map(b => b.chart));
+  for (const src of built) src.chart.subscribeCrosshairMove(p => {
+    show(p.time || null);
+    for (const dst of built) {
+      if (dst === src) continue;
+      const r = p.time && byTime.get(p.time);
+      const v = r ? dst.conf.lines[0].value(r) : null;
+      if (v != null) dst.chart.setCrosshairPosition(v, p.time, dst.series[0]); else dst.chart.clearCrosshairPosition();
+    }
+  });
+}
+
+function applyTheme() {
+  const recColor = css('--rec');
+  for (const b of built) {
+    // 1990年からの全期間を1画面に収められるよう、1日あたりの最小幅を小さくする
+    b.chart.applyOptions({ ...chartOptions(2), timeScale: { borderVisible: false, minBarSpacing: 0.02 } });
+    b.conf.lines.forEach((l, i) => b.series[i].applyOptions({ color: css(l.color) }));
+    b.rec.applyOptions({ color: recColor });
+  }
+  document.querySelectorAll('.swatch').forEach(el => el.style.background = css(el.dataset.c));
+  document.querySelectorAll('.rec-chip').forEach(el => el.style.background = css(el.dataset.bg));
+}
+
+function setRange() {
+  const ts = built[0].chart.timeScale();
+  if (!months) { ts.fitContent(); return; }
+  const last = rows[rows.length - 1].date;
+  const d = new Date(last); d.setMonth(d.getMonth() - months);
+  ts.setVisibleRange({ from: d.toISOString().slice(0, 10), to: last });
+}
+
+// 指定の日（なければ全期間がそろった最新日）の値を読み出し欄とイールドカーブに出す
+let shown = null;
+function show(t) {
+  shown = t;
+  const complete = r => MATURITIES.every(([k]) => r[k] != null);
+  let r = byTime.get(t);
+  if (!r) r = [...rows].reverse().find(complete);
+  const st = invState(s10_2(r));
+  document.getElementById('readout').innerHTML = [`<span><b>${r.date}</b></span>`,
+    `<span>10年−2年 <b>${signed(s10_2(r))}</b>%</span>`, `<span>10年−3カ月 <b>${signed(s10_3m(r))}</b>%</span>`,
+    ...MATURITIES.filter(([k]) => k !== 'y5' && k !== 'y30').map(([k, l]) => `<span>${l} <b>${fmt(r[k])}</b>%</span>`),
+    st ? `<span class="badge ${st[0]}">${st[1]}</span>` : ''].join('');
+  drawCurve(r);
+}
+
+// 基準日の n 年前に一番近い（それ以前の）営業日の行
+function yearsBefore(r, n) {
+  const d = new Date(r.date); d.setFullYear(d.getFullYear() - n);
+  const target = d.toISOString().slice(0, 10);
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].date <= target && rows[i].y10 != null) return rows[i];
+}
+
+function drawCurve(base) {
+  const svg = document.getElementById('curve');
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 260;
+  const pad = { l: 44, r: 16, t: 14, b: 26 };
+  const sets = [
+    { r: base, label: base.date, color: css('--series-1'), width: 3 },
+    { r: yearsBefore(base, 1), label: '1年前', color: css('--series-2'), width: 1.75 },
+    { r: yearsBefore(base, 3), label: '3年前', color: css('--text-muted'), width: 1.75, dash: '5 4' },
+  ].filter(s => s.r);
+  const vals = sets.flatMap(s => MATURITIES.map(([k]) => s.r[k]).filter(v => v != null));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const step = hi - lo > 4 ? 1 : 0.5;
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  if (hi === lo) hi = lo + step;
+  const x = i => pad.l + (W - pad.l - pad.r) * i / (MATURITIES.length - 1);
+  const y = v => pad.t + (H - pad.t - pad.b) * (hi - v) / (hi - lo);
+  let h = '';
+  for (let v = lo; v <= hi + 1e-9; v += step) {
+    h += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${css('--grid')}"/>` +
+      `<text x="${pad.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v, step < 1 ? 1 : 0)}%</text>`;
+  }
+  MATURITIES.forEach(([, l], i) => h += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${l}</text>`);
+  for (const s of [...sets].reverse()) {
+    const pts = MATURITIES.map(([k], i) => s.r[k] == null ? null : [x(i), y(s.r[k])]).filter(Boolean);
+    h += `<polyline fill="none" stroke="${s.color}" stroke-width="${s.width}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+    h += pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="${s.width + 1}" fill="${s.color}"/>`).join('');
+  }
+  svg.innerHTML = h;
+  document.getElementById('curveLegend').innerHTML = sets.map(s =>
+    `<span><span class="swatch" style="background:${s.color};height:${Math.max(3, s.width)}px"></span> <b>${s.label}</b>${s.r !== base ? `（${s.r.date}）` : ''} 10年−2年 ${signed(s10_2(s.r))}%</span>`).join('');
+}
+
+main().catch(e => { document.getElementById('error').textContent = 'データの読み込みに失敗しました: ' + e.message; });
+</script>
+</body>
+</html>

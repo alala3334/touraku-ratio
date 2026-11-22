@@ -15,6 +15,7 @@
   --nikkei: #52514e;
   --hot: #e34948;
   --cold: #2a78d6;
+  --rec: #e4e3de;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -33,6 +34,7 @@
     --nikkei: #c3c2b7;
     --hot: #e66767;
     --cold: #3987e5;
+    --rec: #2b2b28;
   }
 }
 :root[data-theme="dark"] {
@@ -41,6 +43,7 @@
   --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8d8c85;
   --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
   --nikkei: #c3c2b7; --hot: #e66767; --cold: #3987e5;
+  --rec: #2b2b28;
 }
 * { box-sizing: border-box; }
 body {
@@ -96,7 +99,7 @@ td.cold, .badge.cold { background: #2a6fd0; color: #fff; font-weight: 700; }
 .row-head a { font-size: 12px; color: var(--text-secondary); }
 #error { color: var(--hot); }
 /* ページ切り替えタブ */
-/* ページ切り替えタブ: 押しやすいようにボタン型で大きく。スマホでは3列×2段で全部見えるようにする */
+/* ページ切り替えタブ: 押しやすいようにボタン型で大きく。スマホでは4列×2段で全部見えるようにする */
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
 .tabs a { flex: 1 1 0; text-align: center; padding: 12px 10px; font-size: 17px; font-weight: 600; color: var(--text-secondary); text-decoration: none; white-space: nowrap;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; }
