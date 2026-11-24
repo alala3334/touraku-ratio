@@ -1,4 +1,4 @@
-# 市場データの記録（騰落レシオ・信用残・裁定残・PER・PBR・日米国債金利・25日移動平均乖離率・米国債逆イールド）
+# 市場データの記録（騰落レシオ・信用残・裁定残・PER・PBR・日米国債金利・25日移動平均乖離率・米国債逆イールド・信用買い残÷時価総額）
 
 [nikkei225jp.com の騰落レシオ](https://nikkei225jp.com/data/touraku.php) の元データ（東証プライムの値上がり・値下がり銘柄数）を毎営業日 GitHub Actions で取得し、`data/` に蓄積します。
 
@@ -9,7 +9,8 @@
   - `per.html` / `pbr.html` / `kokusai.html` 日経225 PER・PBR（加重平均/指数ベース）、日米10年国債利回り・日米金利差・イールドスプレッド（日次、[元ページ](https://nikkei225jp.com/data/per.php)、米国債は [FRED DGS10](https://fred.stlouisfed.org/series/DGS10)）
   - `kairi.html` 日経225の25日移動平均乖離率（日次）。`data/valuation.json` の日経225終値から画面側で計算するので、取得処理の追加はなし。+5%以上を買われすぎ、−5%以下を売られすぎとして色分け
   - `gyaku.html` 米国債の逆イールド。長短金利差（10年−2年・10年−3カ月）に景気後退期の帯を重ねたチャート、3カ月〜30年のイールドカーブ（基準日・1年前・3年前）（日次、[FRED](https://fred.stlouisfed.org/categories/115) の DGS3MO/DGS2/DGS5/DGS10/DGS30、景気後退期は USREC）
-- データ: [`data/touraku.csv`](data/touraku.csv)、[`data/sinyou.csv`](data/sinyou.csv)、[`data/saitei.csv`](data/saitei.csv)、[`data/valuation.csv`](data/valuation.csv)、[`data/us10y.csv`](data/us10y.csv)、[`data/yield.csv`](data/yield.csv)（画面用は同名の `.json`）
+  - `kaizan.html` 信用買い残 ÷ プライム時価総額（週次）。時価総額は [JPX 市場別時価総額](https://www.jpx.co.jp/markets/statistics-equities/misc/02.html) の月末値（2022年3月以前は東証一部）。週ごとの値は直前の月末の時価総額を日経225の値動きで伸び縮みさせた推定値で、月末の公表値で計算した点も重ねる
+- データ: [`data/touraku.csv`](data/touraku.csv)、[`data/sinyou.csv`](data/sinyou.csv)、[`data/saitei.csv`](data/saitei.csv)、[`data/valuation.csv`](data/valuation.csv)、[`data/us10y.csv`](data/us10y.csv)、[`data/yield.csv`](data/yield.csv)、[`data/jika.csv`](data/jika.csv)（画面用は同名の `.json`）
   - 信用残の金額は億円、株数は千株。2009年6月以降の週次データ
   - 裁定残の金額は億円（2024年10月〜）、株数は千株（2025年11月〜）
   - valuation: PER/PBR/配当利回り（_w=加重平均, _i=指数ベース）と10年国債利回り(%)。2009年6月〜
@@ -26,4 +27,5 @@ python3 scripts/fetch_saitei.py   # 裁定残を手動更新
 python3 scripts/fetch_valuation.py   # PER・PBR・国債利回りを手動更新
 python3 scripts/fetch_us10y.py       # 米国10年債利回りを手動更新
 python3 scripts/fetch_yield.py       # 米国債利回り（逆イールド用）を手動更新
+python3 scripts/fetch_jika.py        # 東証の市場別時価総額（月末）を手動更新（要 openpyxl）
 ```
